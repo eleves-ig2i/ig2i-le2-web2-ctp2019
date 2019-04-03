@@ -1,0 +1,7 @@
+- Créer la base de données à l'aide de trello.html
+
+- Effectuer une requête HTTP vers trello_accueil.html
+
+- Se connecter avec ("toto","toto")
+
+- Utiliser le site !

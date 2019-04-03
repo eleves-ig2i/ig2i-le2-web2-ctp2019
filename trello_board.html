@@ -1,0 +1,380 @@
+
+<link href="jquery-ui/jquery-ui.css" rel="stylesheet">
+
+<script src="jquery.js"></script>
+<script src="jquery-ui/jquery-ui.js"></script>
+<script>
+
+
+    var oDataBoard;
+    var idBoard;
+
+    var pop_newPostIt;
+    var pop_newColumn;
+    var modeleColonne;
+    var vueColonne;
+
+    $(document).ready(function(){
+        console.log(window.location.search);    // affiche ?id=3
+        idBoard = window.location.search.toString().substring(4);
+        console.log(idBoard);
+
+        //recupererDonnees(idBoard);
+
+        pop_newPostIt = $("#popupNewPostIt");
+        pop_newColumn = $("#popupNewColumn");
+        modeleColonne = $("#modeleColonne");
+        vueColonne = $("#vueColonne");
+
+
+        // Récupérer les colonnes
+        $.getJSON(
+            "data.php",
+            {
+                "action" : "getCols",
+                "idBoard" : idBoard
+            },
+            function(oRep)
+            {
+                //console.log(oRep);
+                for( var i = 0; i < oRep.colonnes.length;i++)
+                {
+                    ajouterColonne(oRep.colonnes[i],true);
+                }
+            }
+        );
+
+
+        // Ajouter une colonne (1/2) - faire apparaitre le pop up.
+        $("#ajoutColonne").click(
+            function()
+            {
+                $(".erreur",pop_newColumn).empty();
+                pop_newColumn.dialog("open");
+            }
+        );
+
+
+        // Ajouter une colonne (2/2) - faire apparaitre la colonne
+        $("input[type=button]",pop_newColumn).click(
+            function()
+            {
+                $.getJSON(
+                    "data.php",
+                    {
+                        "action" : "mkCol",
+                        "label" : $("input[type=text]",pop_newColumn).val(),
+                        "idBoard" : idBoard
+                    },
+                    function(oRep)
+                    {
+                        console.log(oRep);
+                        if(oRep.status == true)
+                        {
+                            pop_newColumn.dialog("close");
+                            ajouterColonnes(oRep.colonnes,false);
+                        }
+                        else
+                        {
+                            $(".erreur",pop_newColumn).html("Erreur : Avez-vous rempli le label ?");
+                        }
+                    }
+                )
+            }
+        );
+
+
+        // Supprimer une colonne
+        $(".supprimerColonne",modeleColonne).click(
+            function()
+            {
+                console.log("L'utilisateur veut supprimer une colonne.");
+                var refCol = $(this).parent();
+                var idCol = refCol.data("metadonnees").id;
+                //console.log($(this).parent().data("metadonnees").id);
+                $.getJSON(
+                    "data.php",
+                    {
+                        "action" : "delCol",
+                        "id" : idCol
+
+                    },
+                    function(oRep)
+                    {
+                        console.log(oRep);
+                        if( oRep.feedback == "ok")
+                        {
+                            refCol.remove();
+                        }
+                    }
+                )
+            }
+        );
+
+
+        // Ajouter ou modifier un post it (1/2)
+        $(document).on("click",".postit",
+            function()
+            {
+                if( $(this).hasClass("factice") )
+                {
+                    console.log("On veut creer un nouveau post it.");
+                    var idColonne = $(this).parent().data("metadonnees").id;
+                    //console.log( $(this).parent().data("metadonnees").id);
+                    pop_newPostIt.dialog("open")
+                        .data("colonne",idColonne)
+                        .data("refCol", $(this).parent());
+
+                }
+                else
+                {
+                    console.log("On veut modifier un post it.");
+                }
+            }
+        );
+
+
+        // Ajouter un post it (2/2)
+        $("input[type=button]",pop_newPostIt).click(
+            function()
+            {
+                $.getJSON(
+                    "data.php",
+                    {
+                        "action" : "mkPostit",
+                        "label" : $("input[type=text]",pop_newPostIt).val(),
+                        "idBoard" : idBoard,
+                        "numColonne" : pop_newPostIt.data("colonne")
+                    },
+                    function(oRep)
+                    {
+                        console.log(oRep);
+                        ajouterPostIts(pop_newPostIt.data("colonne"),  pop_newPostIt.data("refCol"));
+                        pop_newPostIt.dialog("close");
+                    }
+                )
+            }
+        );
+
+
+        pop_newPostIt.dialog({autoOpen : false});
+        pop_newColumn.dialog({autoOpen : false});
+
+    });
+
+
+    function ajouterColonnes(tabData,ajouterPostIt)
+    {
+        if( tabData == undefined)
+            return;
+
+        vueColonne.empty();
+        for(var i = 0; i < tabData.length; i++)
+        {
+            ajouterColonne(tabData[i],ajouterPostIt);
+        }
+    }
+
+
+    function ajouterColonne(oData,ajouterPostIt)
+    {
+        console.log(oData);
+        var newColumn = modeleColonne.clone(true).removeAttr("id").removeClass("modele").data("metadonnees",oData);
+
+        if( oData != undefined) {
+            $(".labelColonne", newColumn).html(oData.label);
+        }
+
+        // Ajouter les post it liées à une colonne.
+        if( ajouterPostIt != undefined && ajouterPostIt == true)
+        {
+            ajouterPostIts(oData.id,newColumn);
+        }
+        vueColonne.append(newColumn);
+    }
+
+
+    function ajouterPostIts(idColonne,refColonne)
+    {
+        if( idColonne == undefined || refColonne == undefined)
+            return;
+
+        var copiePostItFactice = $(".factice",refColonne).clone(true);
+
+        $(".postit",refColonne).remove();
+
+        refColonne.append(copiePostItFactice);
+
+        $.getJSON(
+            "data.php",
+            {
+                "action" : "getColPostits",
+                "idBoard" : idBoard,
+                "numColonne" : idColonne
+            },
+            function(oRep)
+            {
+                console.log(oRep);
+                if( oRep.feedback == "ok")
+                {
+                    for( var i =0; i < oRep.postits.length;i++) {
+                        var newPostIt = $(".postit", modeleColonne).first().clone().data(oRep.postits[i]);
+                        //console.log(newPostIt);
+                        $(".avancement", newPostIt).html(oRep.postits[i].avancement);
+                        $(".label",newPostIt).html(oRep.postits[i].label);
+                        refColonne.prepend(newPostIt.removeClass("modele"));
+
+                    }
+                }
+            }
+        )
+    }
+
+    /*function recupererDonnees(id)
+    {
+        // Obtenir les boards
+        $.getJSON(
+            "data.php",
+            {"action" : "getBoards"},
+            function(oRep)
+            {
+                console.log(oRep);
+                if( oRep.status == true)
+                {
+                    for( var i = 0; i < oRep.boards.length; i++)
+                    {
+                        if( oRep.boards[i].id == idBoard  )
+                        {
+                            oDataBoard = oRep.boards[i];
+                        }
+                    }
+                }
+            }
+        );
+    }*/
+
+</script>
+
+
+<style>
+
+    body {
+        margin-top : 60px;
+    }
+
+    .colonne {
+        position : relative;
+        float : left;
+        border : 1px solid black;
+        width : 200px;
+        height : 300px;
+        text-align: center;
+        margin: 20px;
+        padding-top:30px;
+    }
+
+    .postit
+    {
+        margin-top : 10px;
+        border : 1px solid black;
+    }
+
+    .popup
+    {
+        display:none;
+    }
+
+    .postit:hover
+    {
+        background-color:lightgrey;
+        cursor:pointer;
+    }
+
+    .factice
+    {
+        position:absolute;
+        bottom : 0px;right:0px;left:0px;
+    }
+
+    .bouton
+    {
+        border : 1px solid black;
+        height:30px;
+        width:30px;
+        cursor:pointer;
+    }
+
+    #ajoutColonne
+    {
+        position:absolute;
+        top : 0px; right : 0px;
+    }
+
+    .supprimerColonne
+    {
+        position:absolute;
+        top:0px;
+        right:0px;
+    }
+
+    .modele
+    {
+        display:none;
+    }
+
+    .labelColonne
+    {
+        position:absolute;
+        top: 0px; left : 0px;
+        border-bottom : 1px solid black;
+        border-right : 1px solid black;
+    }
+
+    .erreur
+    {
+        color : red;
+    }
+
+</style>
+
+<body>
+<!-- Insérer les éléments importants à manipuler et/ou les modèles -->
+
+<!-- code HTML pour les accents -->
+<!-- &eacute; == "é" _&egrave; == "è" -->
+
+<input type="button" class="bouton" id="ajoutColonne" value="+" />
+
+<div class="popup" id="popupNewPostIt" title="Creer un nouveau post it">
+    Label : <input type="text" /> </br>
+    <div class="erreur"></div>
+    <input type="button" value="Cr&eacute;er le post-it."/>
+</div>
+
+<div class="popup" id="popupNewColumn" title="Creer une nouvelle colonne">
+    Label : <input type="text" /> </br>
+    <div class="erreur"></div>
+    <input type="button" value="Cr&eacute;er la colonne."/>
+</div>
+
+
+<div id="vueColonne">
+    <div id="modeleColonne" class="colonne modele">
+        <input type="button" class="bouton supprimerColonne" value="x" />
+        <div class="labelColonne">LabelColonne</div>
+        <div class="postit modele">
+            <div class="label">Label</div>
+            <div class="description">Description</div>
+            <div class="avancement">100</div>
+        </div>
+
+        <div class="postit factice">Creer un post it</div>
+    </div>
+</div>
+
+
+
+
+</body>
+
+

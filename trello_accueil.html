@@ -1,0 +1,277 @@
+<link href="jquery-ui/jquery-ui.css" rel="stylesheet">
+
+<script src="jquery.js"></script>
+<script src="jquery-ui/jquery-ui.js"></script>
+<script>
+
+    var pop_connexion;
+    var pop_newboard;
+    var vue_identifiant;
+    var vue_accueil;
+
+    $(document).ready(function(){
+
+        pop_connexion = $("#popupConnexion");
+        vue_identifiant = $("#identifiant");
+        vue_accueil = $("#vueAccueil");
+        pop_newboard = $("#popupNewBoard");
+
+
+        // Connecter un utilisateur
+        $("input[type=button]",pop_connexion).click(function(){
+            console.log("L'utilisateur veut se connecter.");
+            $.getJSON(
+                "data.php",
+                {
+                    "action" : "connexion",
+                    "pseudo" : $("input[type=text]",pop_connexion).val(),
+                    "passe" : $("input[type=password]",pop_connexion).val(),
+                },
+                function(oRep)
+                {
+                    console.log(oRep);
+                    if( oRep.status == true)
+                    {
+                        $(".erreur",pop_connexion).empty();
+                        pop_connexion.dialog("close");
+                        vueAccueil(oRep.fullname);
+
+                    }
+                    else
+                    {
+                        $(".erreur",pop_connexion).html("Erreur : Identifiants invalides.");
+                    }
+                }
+            );
+        });
+
+
+        // Déconnecter un utilisateur
+        $("input[type=button]",vue_identifiant).click(
+            function()
+            {
+                console.log("L'utilisateur veut se déconnecter.");
+                $.getJSON(
+                    "data.php",
+                    {
+                        "action" : "logout",
+                    },
+                    function(oRep)
+                    {
+                        console.log(oRep);
+                        vueConnexion();
+                    }
+                );
+            }
+        );
+
+
+        // Créer un nouveau board (1/2) - Ouvrir le pop up de création
+        // Afficher un board (redirection vers trello_board.php
+        $(document).on("click","#vueAccueil div", function() {
+            if ($(this).hasClass("newBoard")) {
+                console.log("L'utilisateur veut creer un nouveau board.");
+                pop_newboard.dialog("open");
+                $(".erreur",pop_newboard).html("");
+            }
+            else
+            {
+                console.log("L'utilisateur veut afficher le board : ");
+                // console.log($(this).data());
+                var oData = $(this).data();
+                redirigerUtilisateur(oData);
+
+            }
+        });
+
+
+        // Créer un nouveau board (2/2) - Effectuer la requête de création dans la BDD et ajouter le board dans le DOM.
+        $("input[type=button]",pop_newboard).click(
+            function()
+            {
+                console.log("L'utilisateur veut creer le board : " + $("input[type=text]",pop_newboard).val());
+                $.getJSON(
+                    "data.php",
+                    {
+                        "action" : "mkBoard",
+                        "label" : $("input[type=text]",pop_newboard).val()
+                    },
+                    function(oRep)
+                    {
+                        console.log(oRep);
+                        if(oRep.status == true)
+                        {
+                            pop_newboard.dialog("close");
+                            creerGalerieBoards(oRep.boards);
+                        }
+                        else
+                        {
+                            $(".erreur",pop_newboard).html("Erreur : Avez-vous rempli le label ?");
+                        }
+                    }
+                )
+            }
+        );
+
+
+
+        pop_connexion.dialog({autoOpen: true});
+        pop_newboard.dialog({autoOpen:false});
+    });
+
+
+    // Affiche les identifiants en haut à droite et les boards
+    function vueAccueil(nom)
+    {
+        $("div",vue_identifiant).html(nom);
+        vue_identifiant.show();
+        vue_accueil.show();
+
+
+        // Obtenir les boards
+        $.getJSON(
+            "data.php",
+            {"action" : "getBoards"},
+            function(oRep)
+            {
+                console.log(oRep);
+                if( oRep.status == true)
+                {
+                    creerGalerieBoards(oRep.boards);
+                }
+            }
+        );
+    }
+
+
+    // Créer la "galerie" de boards
+    function creerGalerieBoards( boards)
+    {
+        var boite_newBoard = $(".newBoard",vue_accueil).clone(true);
+        $("#vueAccueil").empty();
+        $("#vueAccueil").prepend(boite_newBoard);
+
+        // meme en l'absence de board, le tableau existe.
+        for (var i = 0; i < boards.length; i++) {
+            var jD = $("<div>").addClass("board bouton").html("<a>" + boards[i].label + "</a>").data(boards[i]);
+            $("#vueAccueil").prepend(jD);
+        }
+    }
+
+
+
+    // Affiche le popup de connexion
+    function vueConnexion()
+    {
+        vue_accueil.hide();
+        vue_identifiant.hide();
+        pop_connexion.dialog("open");
+    }
+
+
+    function redirigerUtilisateur(oData)
+    {
+        var strRedirection = "trello_board.html";
+        if( oData != undefined)
+        {
+            strRedirection += "?id=" + oData.id;
+        }
+        //console.log(strRedirection);
+
+        // cf https://stackoverflow.com/questions/503093/how-do-i-redirect-to-another-webpage
+        $(location).attr('href', strRedirection);
+    }
+
+
+
+</script>
+
+
+<style>
+
+    body {
+        margin-top : 60px;
+    }
+
+    .popup
+    {
+        padding:5px;
+    }
+
+    .popup, #identifiant, .vue
+    {
+        display:none;
+    }
+
+    #identifiant
+    {
+        position:absolute;
+        border : 1px solid black;
+        top : 0px; right : 0px;
+        text-align: center;
+    }
+
+    .erreur
+    {
+        color:red;
+    }
+
+    #vueAccueil
+    {
+        position:relative;
+    }
+
+    #vueAccueil div
+    {
+        float:left;
+        border:1px solid black;
+        height:100px; line-height:100px;
+        background-color:lightgrey;
+        padding:3px;
+        margin:5px;
+        width:200px;
+        position:relative;
+        text-align:center;
+        vertical-align:middle;
+    }
+
+    .bouton{
+        cursor:pointer;
+        border: 1px solid black;
+        padding:2px;
+        background-color:white;height:30px;line-height:30px;
+    }
+
+</style>
+
+<body>
+    <!-- Insérer les éléments importants à manipuler et/ou les modèles -->
+
+    <!-- code HTML pour les accents -->
+    <!-- &eacute; == "é" _&egrave; == "è" -->
+
+    <div id="identifiant">
+        <div></div>
+        <input type="button" value="Se d&eacute;connecter" />
+    </div>
+
+
+    <div class="popup" id="popupConnexion" title="Connexion">
+        Login : <input type="text" /> </br>
+        Passe : <input type="password" /> </br>
+        <div class="erreur"></div>
+        <input type="button" value="Se connecter"/>
+    </div>
+
+
+    <div class="popup" id="popupNewBoard" title="Cr&eacute;ation d'un nouveau board">
+        Label : <input type="text" /> </br>
+        <div class="erreur"></div>
+        <input type="button" value="Se connecter"/>
+    </div>
+
+    <div id="vueAccueil" class="vue">
+        <div class="bouton board newBoard">Cr&eacute;er Nouveau Board</div>
+    </div>
+</body>
+

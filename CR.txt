@@ -1,0 +1,15 @@
+SALEZ NATHAN
+------------
+
+- Point 1 du préambule entièrement réalisé (page trello_accueil.html).
+
+- Pour les pop up, on utilise jquery-ui.
+
+- On définit une page trello_board.html qui récupère à l'aide de la méthode GET, l'id associé au board à afficher.
+
+NON FAIT :
+- Déplacement de post it
+- Modification de post it
+
+NON TERMINE :
+- ajout de post - it (bug d'affichage lorsqu'on crée une nouvelle colonne)
